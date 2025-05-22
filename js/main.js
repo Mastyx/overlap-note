@@ -30,6 +30,11 @@ let panOffset = { x: 0, y: 0 };
 let isPanning = false;
 let lastPanPoint = { x: 0, y: 0 };
 
+// Variabili per il supporto touch
+let isTouchPanning = false;
+let touchStartTime = 0;
+let touchStartPos = { x: 0, y: 0 };
+
 // Salva lo stile del pennello per passare tra penna e gomma
 let penStyle = {
 		color: '#000000',
@@ -202,7 +207,7 @@ function processImageWithoutFilter() {
 		bgCtx.drawImage(originalImage, drawX, drawY, drawWidth, drawHeight);
 }
 
-// Converti le coordinate del mouse in coordinate del canvas
+// Converti le coordinate in coordinate del canvas (funziona per mouse e touch)
 function getCanvasCoordinates(clientX, clientY) {
 		const rect = drawingCanvas.getBoundingClientRect();
 		return {
@@ -211,7 +216,7 @@ function getCanvasCoordinates(clientX, clientY) {
 		};
 }
 
-// Funzioni di disegno
+// === FUNZIONI PER EVENTI MOUSE ===
 function startDrawing(e) {
 		// Tasto medio del mouse (rotella) per il panning
 		if (e.button === 1) {
@@ -288,6 +293,126 @@ function stopDrawing(e) {
 		isDrawing = false;
 }
 
+// === FUNZIONI PER EVENTI TOUCH ===
+function handleTouchStart(e) {
+		e.preventDefault();
+		const touch = e.touches[0];
+		
+		touchStartTime = Date.now();
+		touchStartPos = { x: touch.clientX, y: touch.clientY };
+		
+		// Se ci sono due dita, inizia il panning
+		if (e.touches.length === 2) {
+				isTouchPanning = true;
+				const touch1 = e.touches[0];
+				const touch2 = e.touches[1];
+				lastPanPoint = { 
+						x: (touch1.clientX + touch2.clientX) / 2,
+						y: (touch1.clientY + touch2.clientY) / 2
+				};
+				return;
+		}
+		
+		// Se è una sola dita, inizia a disegnare
+		if (e.touches.length === 1) {
+				isDrawing = true;
+				const coords = getCanvasCoordinates(touch.clientX, touch.clientY);
+				lastX = coords.x;
+				lastY = coords.y;
+				
+				// Applica un punto all'inizio del tratto
+				drawCtx.beginPath();
+				drawCtx.arc(lastX, lastY, drawCtx.lineWidth / 2, 0, Math.PI * 2);
+				
+				if (isEraser) {
+						drawCtx.globalCompositeOperation = 'destination-out';
+						drawCtx.fill();
+				} else {
+						drawCtx.globalCompositeOperation = 'source-over';
+						drawCtx.fill();
+				}
+		}
+}
+
+function handleTouchMove(e) {
+		e.preventDefault();
+		
+		// Gestisci il panning con due dita
+		if (isTouchPanning && e.touches.length === 2) {
+				const touch1 = e.touches[0];
+				const touch2 = e.touches[1];
+				const currentPanPoint = { 
+						x: (touch1.clientX + touch2.clientX) / 2,
+						y: (touch1.clientY + touch2.clientY) / 2
+				};
+				
+				const dx = currentPanPoint.x - lastPanPoint.x;
+				const dy = currentPanPoint.y - lastPanPoint.y;
+				
+				panOffset.x += dx;
+				panOffset.y += dy;
+				
+				lastPanPoint = currentPanPoint;
+				
+				if (originalImage) {
+						processImage();
+				}
+				return;
+		}
+		
+		// Gestisci il disegno con una sola dita
+		if (!isDrawing || e.touches.length !== 1) return;
+		
+		const touch = e.touches[0];
+		const coords = getCanvasCoordinates(touch.clientX, touch.clientY);
+		const x = coords.x;
+		const y = coords.y;
+		
+		drawCtx.beginPath();
+		drawCtx.moveTo(lastX, lastY);
+		drawCtx.lineTo(x, y);
+		
+		if (isEraser) {
+				drawCtx.globalCompositeOperation = 'destination-out';
+		} else {
+				drawCtx.globalCompositeOperation = 'source-over';
+		}
+		
+		drawCtx.stroke();
+		
+		[lastX, lastY] = [x, y];
+}
+
+function handleTouchEnd(e) {
+		e.preventDefault();
+		
+		// Se era in modalità panning, fermalo
+		if (isTouchPanning) {
+				isTouchPanning = false;
+		}
+		
+		// Se era in modalità disegno, fermalo
+		if (isDrawing) {
+				isDrawing = false;
+		}
+		
+		// Gestisci il tocco lungo per aprire/chiudere la sidebar
+		if (e.touches.length === 0) {
+				const touchDuration = Date.now() - touchStartTime;
+				const touch = e.changedTouches[0];
+				const touchEndPos = { x: touch.clientX, y: touch.clientY };
+				const touchDistance = Math.sqrt(
+						Math.pow(touchEndPos.x - touchStartPos.x, 2) + 
+						Math.pow(touchEndPos.y - touchStartPos.y, 2)
+				);
+				
+				// Se è un tocco lungo (>500ms) e senza movimento significativo (<20px)
+				if (touchDuration > 500 && touchDistance < 20) {
+						toggleSidebar();
+				}
+		}
+}
+
 // Attiva/disattiva la modalità gomma
 function toggleEraser() {
 		if (!isEraser) {
@@ -357,12 +482,13 @@ function downloadImage() {
 			alert("Si è verificato un errore durante il salvataggio dell'immagine.");
 	}
 }
+
 // Toggle sidebar
 function toggleSidebar() {
 		sidebar.classList.toggle('open');
 }
 
-// Event Listeners
+// Event Listeners per controlli
 imageInput.addEventListener('change', (e) => {
 		if (e.target.files && e.target.files[0]) {
 				loadImage(e.target.files[0]);
@@ -399,11 +525,16 @@ eraserBtn.addEventListener('click', toggleEraser);
 penBtn.addEventListener('click', togglePen);
 menuToggle.addEventListener('click', toggleSidebar);
 
-// Event listeners per il disegno
+// Event listeners per il disegno - MOUSE
 drawingCanvas.addEventListener('mousedown', startDrawing);
 drawingCanvas.addEventListener('mousemove', draw);
 drawingCanvas.addEventListener('mouseup', stopDrawing);
 drawingCanvas.addEventListener('mouseout', stopDrawing);
+
+// Event listeners per il disegno - TOUCH
+drawingCanvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+drawingCanvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+drawingCanvas.addEventListener('touchend', handleTouchEnd, { passive: false });
 
 // Previene il comportamento predefinito del tasto destro
 drawingCanvas.addEventListener('contextmenu', (e) => {
@@ -424,6 +555,22 @@ window.addEventListener('resize', () => {
 				processImage();
 		}
 });
+
+// Previene lo zoom indesiderato sui dispositivi mobili
+document.addEventListener('touchstart', function(e) {
+		if (e.touches.length > 1) {
+				e.preventDefault();
+		}
+}, { passive: false });
+
+let lastTouchEnd = 0;
+document.addEventListener('touchend', function(e) {
+		const now = (new Date()).getTime();
+		if (now - lastTouchEnd <= 300) {
+				e.preventDefault();
+		}
+		lastTouchEnd = now;
+}, false);
 
 // Inizializzazione
 initCanvases();
