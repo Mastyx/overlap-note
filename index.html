@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Overlap note</title>
+    <link rel="stylesheet" href="./css/style.css">
+</head>
+<body>
+	<button class="menu-toggle" id="menuToggle">☰</button>
+	
+	<div class="sidebar" id="sidebar">
+			<h2>Menu Strumenti</h2>
+			
+			<div class="control-group">
+					<label for="imageInput">Importa immagine:</label>
+					<input type="file" id="imageInput" accept="image/*">
+			</div>
+			
+			<div class="control-group">
+					<label for="colorPicker">Colore:</label>
+					<input type="color" id="colorPicker" value="#000000">
+			</div>
+			
+			<div class="control-group">
+					<label for="brushSize">Dimensione pennello:</label>
+					<input type="range" id="brushSize" min="1" max="50" value="5">
+					<span class="range-value" id="brushSizeValue">5px</span>
+			</div>
+			
+			<div class="tool-group">
+					<button id="penBtn" class="tool-btn" title="Penna">Penna</button>
+					<button id="eraserBtn" class="tool-btn" title="Gomma">Gomma</button>
+			</div>
+			
+			<div class="control-group">
+					<label for="brightness">Luminosità sfondo:</label>
+					<input type="range" id="brightness" min="0" max="100" value="80">
+					<span class="range-value" id="brightnessValue">80%</span>
+			</div>
+
+			<div class="checkbox-group">
+				<input type="checkbox" id="trasparentBackground">
+				<label for="trasparentBackground">Salva con Sfondo trasparente</label>
+			</div>
+			
+			<button id="clearBtn" class="action-btn danger">Cancella disegno</button>
+			<button id="downloadBtn" class="action-btn primary">Scarica disegno</button>
+			
+			<div class="instructions">
+					<p><strong>Suggerimenti:</strong><br>
+					• Usa il tasto centrale del mouse per spostare l'immagine<br>
+					• Clicca sull'icona menu per aprire/chiudere i controlli<br>
+					• Il download salverà solo il tuo disegno (trasparente)
+					</p>
+			</div>
+	</div>
+	
+	<div class="canvas-container" id="canvasContainer">
+			<canvas id="backgroundCanvas"></canvas>
+			<canvas id="drawingCanvas"></canvas>
+	</div>
+	<script src="./js/main.js"></script>
+</body>
+</html>
